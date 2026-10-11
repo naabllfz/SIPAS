@@ -9,7 +9,7 @@ class MahasiswaModel:
             cursor = conn.cursor(dictionary=True)
             cursor.execute("""
                 SELECT id_mahasiswa, nim, nama_mahasiswa,
-                       program_studi, email
+                    program_studi, email
                 FROM mahasiswa
                 ORDER BY id_mahasiswa DESC
             """)
@@ -25,7 +25,7 @@ class MahasiswaModel:
             cursor.execute(
                 """
                 SELECT id_mahasiswa, nim, nama_mahasiswa,
-                       program_studi, email
+                    program_studi, email
                 FROM mahasiswa
                 WHERE id_mahasiswa = %s
                 """,
@@ -43,7 +43,7 @@ class MahasiswaModel:
             cursor.execute(
                 """
                 SELECT id_mahasiswa, nim, nama_mahasiswa,
-                       program_studi, email
+                    program_studi, email
                 FROM mahasiswa
                 WHERE nim = %s
                 """,

@@ -100,7 +100,7 @@ class PengajuanSuratModel:
                 """
                 INSERT INTO pengajuan_surat
                     (nomor_pengajuan, tanggal_pengajuan, status,
-                     id_mahasiswa, id_jenis_surat)
+                    id_mahasiswa, id_jenis_surat)
                 VALUES (%s, CURDATE(), %s, %s, %s)
                 """,
                 (nomor_pengajuan, status, id_mahasiswa, id_jenis_surat),

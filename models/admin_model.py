@@ -3,7 +3,6 @@ from config.database import Database
 
 class AdminModel:
     def autentikasi(self, username, password):
-        """Cek login admin berdasarkan username dan password."""
         conn = Database.get_connection()
 
         try:
