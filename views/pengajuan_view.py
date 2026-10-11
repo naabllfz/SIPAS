@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
+from models.jenis_surat_model import JenisSuratModel
 
 from views.theme import (
     BG, WHITE, NAVY, BLUE, MUTED, LINE, PALE_BLUE,
@@ -42,6 +43,9 @@ class PengajuanView(tk.Frame):
             font=("Segoe UI", 8)
         ).grid(row=1, column=0, columnspan=2, sticky="w", pady=(0, 17))
 
+        self.jenis_surat_data = []
+        self.jenis_surat_by_nama = {}
+
         self.entries = {}
         self.add_input(form, "NIM *", "nim", "Contoh: F52125100", 2, 0)
         self.add_input(form, "Nama mahasiswa *", "nama", "Nama lengkap", 2, 1)
@@ -54,15 +58,37 @@ class PengajuanView(tk.Frame):
         ).grid(row=6, column=0, sticky="w", pady=(4, 7))
 
         self.jenis = ttk.Combobox(
-            form,
-            state="readonly",
-            font=("Segoe UI", 10),
-            values=[
-                "Surat Keterangan Aktif Kuliah (SKAK)",
-                "Surat Permohonan Keringanan/Penurunan UKT",
-                "Surat Permohonan Cuti Akademik"
-            ]
+                form,
+                state="readonly",
+                font=("Segoe UI", 10),
+                values=[]
+            )
+        
+        self.jenis.grid(
+            row=7,
+            column=0,
+            columnspan=2,
+            sticky="ew",
+            ipady=4
         )
+        self.jenis.set("Pilih jenis surat")
+
+        self.info_jenis = tk.Label(
+            form,
+            text="Memuat jenis surat dari database...",
+            bg=WHITE,
+            fg=MUTED,
+            font=("Segoe UI", 8)
+        )
+        self.info_jenis.grid(
+            row=7,
+            column=0,
+            columnspan=2,
+            sticky="e",
+            pady=(35, 0)
+        )
+
+        self.load_jenis_surat()
         self.jenis.grid(row=7, column=0, columnspan=2, sticky="ew", ipady=4)
         self.jenis.set("Pilih jenis surat")
 
@@ -163,12 +189,17 @@ class PengajuanView(tk.Frame):
         self.entries[key] = (entry, hint)
 
     def kirim(self):
-        if self.jenis.get() == "Pilih jenis surat":
+        nama_jenis = self.jenis.get()
+        jenis_terpilih = self.jenis_surat_by_nama.get(nama_jenis)
+
+        if not jenis_terpilih:
             messagebox.showwarning(
-                "Form belum lengkap",
-                "Pilih jenis surat terlebih dahulu."
+                "Jenis surat tidak tersedia",
+                "Pilih jenis surat aktif dari daftar."
             )
             return
+
+        id_jenis_surat = jenis_terpilih["id_jenis_surat"]
 
         if not self.keterangan.get("1.0", "end").strip():
             messagebox.showwarning(
@@ -182,3 +213,44 @@ class PengajuanView(tk.Frame):
             "Tampilan formulir sudah siap. Sambungkan tombol ini ke "
             "PengajuanController untuk menyimpan ke database."
         )
+
+    def load_jenis_surat(self):
+        try:
+            # Mengambil hanya jenis surat yang aktif dari database.
+            self.jenis_surat_data = JenisSuratModel().aktif_saja() or []
+
+            self.jenis_surat_by_nama = {}
+            nama_jenis = []
+
+            for row in self.jenis_surat_data:
+                nama = (
+                    row.get("nama_jenis")
+                    or row.get("nama_jenis_surat")
+                )
+
+                if nama:
+                    nama_jenis.append(nama)
+                    self.jenis_surat_by_nama[nama] = row
+
+            self.jenis.configure(values=nama_jenis)
+
+            if nama_jenis:
+                self.jenis.set("Pilih jenis surat")
+                self.info_jenis.configure(
+                    text=f"{len(nama_jenis)} jenis surat tersedia",
+                    fg=MUTED
+                )
+            else:
+                self.jenis.set("Tidak ada jenis surat aktif")
+                self.info_jenis.configure(
+                    text="Periksa data jenis surat di database.",
+                    fg="#A96335"
+                )
+
+        except Exception as error:
+            self.jenis.configure(values=[])
+            self.jenis.set("Gagal memuat jenis surat")
+            self.info_jenis.configure(
+                text=f"Kesalahan database: {error}",
+                fg="#B65C54"
+            )
