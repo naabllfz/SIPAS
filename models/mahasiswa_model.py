@@ -4,12 +4,10 @@ from config.database import Database
 class MahasiswaModel:
     def semua(self):
         conn = Database.get_connection()
-
         try:
             cursor = conn.cursor(dictionary=True)
             cursor.execute("""
-                SELECT id_mahasiswa, nim, nama_mahasiswa,
-                    program_studi, email
+                SELECT id_mahasiswa, nim, nama, prodi, email
                 FROM mahasiswa
                 ORDER BY id_mahasiswa DESC
             """)
@@ -19,53 +17,38 @@ class MahasiswaModel:
 
     def berdasarkan_id(self, id_mahasiswa):
         conn = Database.get_connection()
-
         try:
             cursor = conn.cursor(dictionary=True)
-            cursor.execute(
-                """
-                SELECT id_mahasiswa, nim, nama_mahasiswa,
-                    program_studi, email
+            cursor.execute("""
+                SELECT id_mahasiswa, nim, nama, prodi, email
                 FROM mahasiswa
                 WHERE id_mahasiswa = %s
-                """,
-                (id_mahasiswa,),
-            )
+            """, (id_mahasiswa,))
             return cursor.fetchone()
         finally:
             conn.close()
 
     def berdasarkan_nim(self, nim):
         conn = Database.get_connection()
-
         try:
             cursor = conn.cursor(dictionary=True)
-            cursor.execute(
-                """
-                SELECT id_mahasiswa, nim, nama_mahasiswa,
-                    program_studi, email
+            cursor.execute("""
+                SELECT id_mahasiswa, nim, nama, prodi, email
                 FROM mahasiswa
                 WHERE nim = %s
-                """,
-                (nim,),
-            )
+            """, (nim,))
             return cursor.fetchone()
         finally:
             conn.close()
 
-    def tambah(self, nim, nama_mahasiswa, program_studi, email, password):
+    def tambah(self, nim, nama, prodi, email=None):
         conn = Database.get_connection()
-
         try:
             cursor = conn.cursor()
-            cursor.execute(
-                """
-                INSERT INTO mahasiswa
-                    (nim, nama_mahasiswa, program_studi, email, password)
-                VALUES (%s, %s, %s, %s, %s)
-                """,
-                (nim, nama_mahasiswa, program_studi, email, password),
-            )
+            cursor.execute("""
+                INSERT INTO mahasiswa (nim, nama, prodi, email)
+                VALUES (%s, %s, %s, %s)
+            """, (nim, nama, prodi, email))
             conn.commit()
             return cursor.lastrowid
         except Exception:
@@ -74,44 +57,18 @@ class MahasiswaModel:
         finally:
             conn.close()
 
-    def perbarui(
-        self, id_mahasiswa, nim, nama_mahasiswa,
-        program_studi, email, password=None
-    ):
+    def perbarui(self, id_mahasiswa, nim, nama, prodi, email=None):
         conn = Database.get_connection()
-
         try:
             cursor = conn.cursor()
-
-            if password:
-                cursor.execute(
-                    """
-                    UPDATE mahasiswa
-                    SET nim = %s,
-                        nama_mahasiswa = %s,
-                        program_studi = %s,
-                        email = %s,
-                        password = %s
-                    WHERE id_mahasiswa = %s
-                    """,
-                    (
-                        nim, nama_mahasiswa, program_studi,
-                        email, password, id_mahasiswa
-                    ),
-                )
-            else:
-                cursor.execute(
-                    """
-                    UPDATE mahasiswa
-                    SET nim = %s,
-                        nama_mahasiswa = %s,
-                        program_studi = %s,
-                        email = %s
-                    WHERE id_mahasiswa = %s
-                    """,
-                    (nim, nama_mahasiswa, program_studi, email, id_mahasiswa),
-                )
-
+            cursor.execute("""
+                UPDATE mahasiswa
+                SET nim = %s,
+                    nama = %s,
+                    prodi = %s,
+                    email = %s
+                WHERE id_mahasiswa = %s
+            """, (nim, nama, prodi, email, id_mahasiswa))
             conn.commit()
             return cursor.rowcount
         except Exception:
@@ -122,12 +79,11 @@ class MahasiswaModel:
 
     def hapus(self, id_mahasiswa):
         conn = Database.get_connection()
-
         try:
             cursor = conn.cursor()
             cursor.execute(
                 "DELETE FROM mahasiswa WHERE id_mahasiswa = %s",
-                (id_mahasiswa,),
+                (id_mahasiswa,)
             )
             conn.commit()
             return cursor.rowcount

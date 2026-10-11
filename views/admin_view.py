@@ -52,8 +52,8 @@ class AdminView(tk.Frame):
             self.pengajuan = [
                 (
                     record.get("nomor_pengajuan", ""),
-                    record.get("nama_mahasiswa", ""),
-                    record.get("nama_jenis_surat", ""),
+                    record.get("nama", ""),
+                    record.get("nama_jenis", ""),
                     self.format_date(record.get("tanggal_pengajuan")),
                     record.get("status", "")
                 )
@@ -71,8 +71,8 @@ class AdminView(tk.Frame):
                 (
                     record.get("id_mahasiswa"),
                     record.get("nim", ""),
-                    record.get("nama_mahasiswa", ""),
-                    record.get("program_studi", ""),
+                    record.get("nama", ""),
+                    record.get("prodi", ""),
                     record.get("email", "") or "-"
                 )
                 for record in records
@@ -88,7 +88,7 @@ class AdminView(tk.Frame):
             self.jenis_surat = [
                 (
                     record.get("id_jenis_surat"),
-                    record.get("nama_jenis_surat", ""),
+                    record.get("nama_jenis", ""),
                     record.get("deskripsi", "") or "-"
                 )
                 for record in records
@@ -136,8 +136,8 @@ class AdminView(tk.Frame):
         else:
             values = [
                 ("Total Pengajuan", str(len(self.pengajuan)), BLUE),
-                ("Menunggu", str(self.jumlah_status("Menunggu")), AMBER),
-                ("Disetujui", str(self.jumlah_status("Disetujui")), GREEN),
+                ("Menunggu", str(self.jumlah_status("Diproses")), AMBER),
+                ("Disetujui", str(self.jumlah_status("Selesai")), GREEN),
                 ("Ditolak", str(self.jumlah_status("Ditolak")), RED),
             ]
 
