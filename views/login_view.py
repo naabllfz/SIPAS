@@ -1,7 +1,6 @@
 import tkinter as tk
-from tkinter import messagebox
 
-from views.theme import BG, WHITE, NAVY, BLUE, MUTED, LINE, labeled_entry
+from views.theme import BG, WHITE, NAVY, BLUE, MUTED, LINE
 
 
 class LoginView(tk.Frame):
@@ -14,12 +13,20 @@ class LoginView(tk.Frame):
         visual.pack_propagate(False)
 
         tk.Label(
-            visual, text="S", bg=BLUE, fg=WHITE, width=2, height=1,
+            visual,
+            text="S",
+            bg=BLUE,
+            fg=WHITE,
+            width=2,
+            height=1,
             font=("Segoe UI", 19, "bold")
         ).pack(anchor="w", padx=54, pady=(65, 10))
 
         tk.Label(
-            visual, text="SIPAS", bg=NAVY, fg=WHITE,
+            visual,
+            text="SIPAS",
+            bg=NAVY,
+            fg=WHITE,
             font=("Segoe UI", 26, "bold")
         ).pack(anchor="w", padx=54)
 
@@ -32,7 +39,9 @@ class LoginView(tk.Frame):
         ).pack(anchor="w", padx=56, pady=(5, 40))
 
         tk.Frame(
-            visual, bg="#2D584A", height=1
+            visual,
+            bg="#2D584A",
+            height=1
         ).pack(fill="x", padx=54, pady=(0, 28))
 
         fitur = [
@@ -46,76 +55,85 @@ class LoginView(tk.Frame):
             row.pack(fill="x", padx=54, pady=13)
 
             tk.Label(
-                row, text=nomor, bg="#2D584A", fg="#CFDFC1",
-                width=4, pady=8, font=("Segoe UI", 9, "bold")
+                row,
+                text=nomor,
+                bg="#2D584A",
+                fg="#CFDFC1",
+                width=4,
+                pady=8,
+                font=("Segoe UI", 9, "bold")
             ).pack(side="left", padx=(0, 13))
 
-            text = tk.Frame(row, bg=NAVY)
-            text.pack(side="left", fill="x", expand=True)
+            text_frame = tk.Frame(row, bg=NAVY)
+            text_frame.pack(side="left", fill="x", expand=True)
 
             tk.Label(
-                text, text=judul, bg=NAVY, fg=WHITE,
+                text_frame,
+                text=judul,
+                bg=NAVY,
+                fg=WHITE,
                 font=("Segoe UI", 10, "bold")
             ).pack(anchor="w")
 
             tk.Label(
-                text, text=detail, bg=NAVY, fg="#B6C9B5",
-                font=("Segoe UI", 8), wraplength=230, justify="left"
+                text_frame,
+                text=detail,
+                bg=NAVY,
+                fg="#B6C9B5",
+                font=("Segoe UI", 8),
+                wraplength=230,
+                justify="left"
             ).pack(anchor="w", pady=(4, 0))
 
         tk.Label(
-            visual, text="PORTAL LAYANAN MAHASISWA  •  2026",
-            bg=NAVY, fg="#8FA892", font=("Segoe UI", 8, "bold")
+            visual,
+            text="PORTAL LAYANAN MAHASISWA  •  2026",
+            bg=NAVY,
+            fg="#8FA892",
+            font=("Segoe UI", 8, "bold")
         ).pack(side="bottom", anchor="w", padx=54, pady=28)
 
         right = tk.Frame(self, bg=BG)
         right.pack(side="left", fill="both", expand=True)
 
         card = tk.Frame(
-            right, bg=WHITE, padx=42, pady=38,
-            highlightbackground=LINE, highlightthickness=1
+            right,
+            bg=WHITE,
+            padx=42,
+            pady=38,
+            highlightbackground=LINE,
+            highlightthickness=1
         )
-        card.place(relx=0.5, rely=0.5, anchor="center", width=420, height=440)
+        card.place(
+            relx=0.5,
+            rely=0.5,
+            anchor="center",
+            width=420,
+            height=350
+        )
 
         tk.Label(
-            card, text="Selamat datang", bg=WHITE, fg=NAVY,
+            card,
+            text="Pilih mode demo",
+            bg=WHITE,
+            fg=NAVY,
             font=("Segoe UI", 22, "bold")
         ).pack(anchor="w")
 
         tk.Label(
             card,
-            text="Masuk untuk melanjutkan ke layanan surat.",
+            text="Pilih peran untuk melihat halaman dan menu yang berbeda.",
             bg=WHITE,
             fg=MUTED,
-            font=("Segoe UI", 9)
+            font=("Segoe UI", 9),
+            wraplength=320,
+            justify="left"
         ).pack(anchor="w", pady=(6, 25))
-
-        wrap, self.username = labeled_entry(
-            card, "Username atau NIM", "Masukkan username atau NIM"
-        )
-        wrap.pack(fill="x", pady=(0, 16))
-
-        wrap, self.password = labeled_entry(
-            card, "Kata sandi", "Masukkan kata sandi", show="•"
-        )
-        wrap.pack(fill="x")
-
-        self.remember = tk.BooleanVar(value=True)
-        tk.Checkbutton(
-            card,
-            text="Ingat saya di perangkat ini",
-            variable=self.remember,
-            bg=WHITE,
-            fg=MUTED,
-            activebackground=WHITE,
-            selectcolor=WHITE,
-            font=("Segoe UI", 8)
-        ).pack(anchor="w", pady=(12, 18))
 
         tk.Button(
             card,
-            text="Lanjutkan ke aplikasi  →",
-            command=self.login,
+            text="Masuk sebagai Mahasiswa  →",
+            command=lambda: self.on_login("mahasiswa"),
             bg=BLUE,
             fg=WHITE,
             activebackground="#3D6330",
@@ -124,16 +142,26 @@ class LoginView(tk.Frame):
             bd=0,
             cursor="hand2",
             font=("Segoe UI", 10, "bold")
-        ).pack(fill="x", ipady=11)
+        ).pack(fill="x", ipady=12, pady=(0, 12))
+
+        tk.Button(
+            card,
+            text="Masuk sebagai Admin  →",
+            command=lambda: self.on_login("admin"),
+            bg=NAVY,
+            fg=WHITE,
+            activebackground="#21483D",
+            activeforeground=WHITE,
+            relief="flat",
+            bd=0,
+            cursor="hand2",
+            font=("Segoe UI", 10, "bold")
+        ).pack(fill="x", ipady=12)
 
         tk.Label(
             card,
-            text="Mode demo • login belum terhubung ke Controller",
+            text="Mode demo • belum memakai autentikasi Controller",
             bg=WHITE,
             fg="#8F998E",
             font=("Segoe UI", 8)
-        ).pack(pady=(17, 0))
-
-    def login(self):
-        """Mode demo: lanjut tanpa memeriksa username atau password."""
-        self.on_login()
+        ).pack(pady=(20, 0))
