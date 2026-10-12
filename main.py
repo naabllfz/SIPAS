@@ -147,6 +147,7 @@ class AplikasiPengajuanSurat(tk.Tk):
         if self.role == "admin":
             menu = [
                 ("admin_dashboard", "⌂   Dashboard Admin"),
+                ("pengajuan", "＋   Buat Pengajuan"),
                 ("admin_queue", "▤   Kelola Pengajuan"),
                 ("admin_mahasiswa", "♙   Data Mahasiswa"),
                 ("admin_jenis_surat", "✉   Jenis Surat")
@@ -340,6 +341,19 @@ class AplikasiPengajuanSurat(tk.Tk):
                 self.content,
                 on_navigate=self.navigate
             ).pack(fill="both", expand=True)
+
+        if page == "pengajuan":
+            tujuan_kembali = (
+                "admin_dashboard"
+                if self.role == "admin"
+                else "dashboard"
+            )
+
+            PengajuanView(
+                self.content,
+                on_navigate=lambda _tujuan: self.navigate(tujuan_kembali)
+            ).pack(fill="both", expand=True)
+            return
 
 
 if __name__ == "__main__":
