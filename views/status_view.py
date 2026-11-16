@@ -1,28 +1,33 @@
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
 from datetime import datetime
 
-from models.pengajuan_surat_model import PengajuanSuratModel
+from controllers.mahasiswa_controller import MahasiswaController
+from views.surat_preview_dialog import SuratPreviewDialog
 from views.theme import (
-    BG, WHITE, NAVY, BLUE, MUTED,
+    BG, WHITE, NAVY, BLUE, MUTED, LINE,
     PALE_BLUE, PALE_AMBER, PALE_GREEN,
     page_heading, panel, primary_button
 )
 
 
 class StatusView(tk.Frame):
-    def __init__(self, master, on_navigate=None):
+    def __init__(self, master, id_mahasiswa=1, on_navigate=None):
         super().__init__(master, bg=BG)
 
+        self.id_mahasiswa = id_mahasiswa
         self.on_navigate = on_navigate
+        self.controller = MahasiswaController(self.id_mahasiswa)
+
         self.rows = []
         self.error_message = None
+        self.selected_row_data = None
 
         page_heading(
             self,
             "Riwayat layanan",
-            "Status pengajuan",
-            "Cari dan tinjau status pengajuan surat dari database."
+            "Status pengajuan surat",
+            "Pantau status persetujuan dan tanda tangan dosen secara langsung dari database."
         )
 
         search = panel(self, 15, 13)
@@ -36,7 +41,7 @@ class StatusView(tk.Frame):
             font=("Segoe UI", 17, "bold")
         ).pack(side="left", padx=(0, 9))
 
-        self.hint = "Cari nomor atau jenis surat"
+        self.hint = "Cari nomor, nama jenis, atau dosen pembimbing"
         self.nomor = tk.Entry(
             search,
             font=("Segoe UI", 10),
@@ -66,7 +71,7 @@ class StatusView(tk.Frame):
 
         tk.Label(
             title_area,
-            text="Daftar permohonan",
+            text="Daftar permohonan saya",
             bg=WHITE,
             fg=NAVY,
             font=("Segoe UI", 12, "bold")
@@ -95,61 +100,85 @@ class StatusView(tk.Frame):
             lambda _event: self.tampilkan_hasil()
         )
 
-        columns = ("nomor", "tanggal", "jenis", "status")
+        columns = ("nomor", "tanggal", "jenis", "status_umum", "status_dosen", "ttd_digital")
         self.table = ttk.Treeview(
             card,
             columns=columns,
             show="headings",
-            height=8
+            height=7
         )
 
         headings = {
-            "nomor": "NOMOR PENGAJUAN",
+            "nomor": "NO. PENGAJUAN",
             "tanggal": "TANGGAL",
             "jenis": "JENIS SURAT",
-            "status": "STATUS"
+            "status_umum": "STATUS",
+            "status_dosen": "VERIFIKASI DOSEN",
+            "ttd_digital": "TTD DIGITAL"
+        }
+
+        col_widths = {
+            "nomor": 110,
+            "tanggal": 120,
+            "jenis": 260,
+            "status_umum": 110,
+            "status_dosen": 140,
+            "ttd_digital": 170
         }
 
         for col in columns:
             self.table.heading(col, text=headings[col])
             self.table.column(
                 col,
-                width=170 if col != "jenis" else 360,
+                width=col_widths.get(col, 130),
                 anchor="w"
             )
 
         self.table.pack(fill="both", expand=True)
         self.table.bind("<<TreeviewSelect>>", self.pilih_baris)
 
-        self.detail = tk.Frame(self, bg=PALE_BLUE, padx=15, pady=12)
+        # Panel Detail & Tombol Lihat Pratinjau Surat
+        self.detail = tk.Frame(self, bg=PALE_BLUE, padx=18, pady=14, highlightbackground=LINE, highlightthickness=1)
         self.detail.pack(fill="x", pady=(14, 0))
 
+        d_header = tk.Frame(self.detail, bg=PALE_BLUE)
+        d_header.pack(fill="x")
+
         self.detail_title = tk.Label(
-            self.detail,
-            text="INFORMASI STATUS",
+            d_header,
+            text="INFORMASI STATUS & PENGESAHAN DOKUMEN",
             bg=PALE_BLUE,
             fg=BLUE,
-            font=("Segoe UI", 8, "bold")
+            font=("Segoe UI", 9, "bold")
         )
-        self.detail_title.pack(anchor="w")
+        self.detail_title.pack(side="left")
+
+        # Tombol Pratinjau Surat Resmi di sisi kanan
+        self.btn_preview = primary_button(
+            d_header,
+            "👁 Buka Pratinjau Surat & Unduh PDF",
+            self.buka_pratinjau_surat,
+            padx=14,
+            pady=6
+        )
+        self.btn_preview.pack(side="right")
 
         self.detail_text = tk.Label(
             self.detail,
-            text="Pilih salah satu pengajuan untuk melihat detailnya.",
+            text="Pilih salah satu pengajuan pada tabel di atas untuk melihat detail verifikasi dan tanda tangan dosen.",
             bg=PALE_BLUE,
             fg="#596D5E",
             font=("Segoe UI", 9),
             justify="left",
-            wraplength=1000
+            wraplength=950
         )
-        self.detail_text.pack(anchor="w", pady=(4, 0))
+        self.detail_text.pack(anchor="w", pady=(6, 0))
 
         self.muat_data()
 
     def muat_data(self):
         try:
-            # Login belum tersambung, jadi muat seluruh pengajuan.
-            self.rows = PengajuanSuratModel().semua_dengan_relasi() or []
+            self.rows = self.controller.get_riwayat_saja()
             self.error_message = None
 
             status_tersedia = sorted({
@@ -162,7 +191,7 @@ class StatusView(tk.Frame):
                 values=["Semua status"] + status_tersedia
             )
             self.info_label.configure(
-                text=f"{len(self.rows)} pengajuan dari database"
+                text=f"{len(self.rows)} pengajuan milik Anda"
             )
             self.tampilkan_hasil()
 
@@ -178,72 +207,57 @@ class StatusView(tk.Frame):
                 f"Detail: {error}"
             )
 
+    def _get_query_aktif(self):
+        query = self.nomor.get().strip()
+        return "" if query.lower() == self.hint.lower() else query
+
     def tampilkan_hasil(self):
-        query = self.nomor.get().strip().lower()
-        if query == self.hint.lower():
-            query = ""
-
-        status_pilihan = self.filter_var.get()
-        hasil = []
-
-        for row in self.rows:
-            nomor = str(row.get("nomor_pengajuan") or "")
-            jenis = str(
-                row.get("nama_jenis_surat")
-                or row.get("nama_jenis")
-                or ""
-            )
-            nama = str(
-                row.get("nama_mahasiswa")
-                or row.get("nama")
-                or ""
-            )
-            status = str(row.get("status") or "")
-
-            cocok_status = (
-                status_pilihan == "Semua status"
-                or status == status_pilihan
-            )
-            cocok_cari = (
-                not query
-                or query in nomor.lower()
-                or query in jenis.lower()
-                or query in nama.lower()
-            )
-
-            if cocok_status and cocok_cari:
-                hasil.append(row)
+        hasil = self.controller.filter_pengajuan(
+            self.rows,
+            keyword=self._get_query_aktif(),
+            filter_status=self.filter_var.get()
+        )
 
         self.table.delete(*self.table.get_children())
 
         for index, row in enumerate(hasil):
             nomor = row.get("nomor_pengajuan") or "-"
-            jenis = (
-                row.get("nama_jenis_surat")
-                or row.get("nama_jenis")
-                or "-"
-            )
+            jenis = row.get("jenis_surat") or row.get("nama_jenis") or row.get("nama_jenis_surat") or "-"
             tanggal = self.format_date(row.get("tanggal_pengajuan"))
-            status = row.get("status") or "-"
+            status = str(row.get("status") or "Diajukan")
+
+            st_lower = status.lower()
+            if st_lower in ("disetujui", "selesai"):
+                dosen_label = "✓ Disetujui Dosen"
+            elif st_lower == "ditolak":
+                dosen_label = "✕ Ditolak Dosen"
+            else:
+                dosen_label = "⏳ Menunggu TTD"
+
+            ttd_raw = row.get("tanda_tangan_digital")
+            if ttd_raw and st_lower in ("disetujui", "selesai"):
+                ttd = f"{ttd_raw[:16]}..."
+            else:
+                ttd = "—"
 
             self.table.insert(
                 "",
                 "end",
                 iid=str(index),
-                values=(nomor, tanggal, jenis, status)
+                values=(nomor, tanggal, jenis, status, dosen_label, ttd)
             )
 
         if not hasil:
             pesan = (
                 "Tidak ada pengajuan yang cocok dengan pencarian/filter."
                 if self.rows
-                else "Belum ada data pengajuan di database."
+                else "Anda belum memiliki pengajuan surat."
             )
             self.table.insert(
                 "",
                 "end",
                 iid="kosong",
-                values=(pesan, "-", "-", "-")
+                values=(pesan, "-", "-", "-", "-", "-")
             )
 
     def tabel_pesan(self, nomor, pesan):
@@ -251,7 +265,7 @@ class StatusView(tk.Frame):
         self.table.insert(
             "",
             "end",
-            values=(nomor, "-", "-", "-")
+            values=(nomor, "-", "-", "-", "-", "-")
         )
         self.detail_title.configure(text="DATA TIDAK TERSEDIA")
         self.detail_text.configure(text=pesan)
@@ -281,78 +295,102 @@ class StatusView(tk.Frame):
 
         try:
             row = self._hasil_terakhir()[int(item_id)]
+            self.selected_row_data = row
         except (ValueError, IndexError):
             return
 
-        status = str(row.get("status") or "Tanpa status")
+        status = str(row.get("status") or "Diajukan")
         nomor = row.get("nomor_pengajuan") or "-"
-        jenis = (
-            row.get("nama_jenis_surat")
-            or row.get("nama_jenis")
-            or "-"
-        )
-        catatan = row.get("catatan_admin") or "Belum ada catatan admin."
+        jenis = row.get("jenis_surat") or row.get("nama_jenis") or row.get("nama_jenis_surat") or "-"
+        nama_dosen = row.get("nama_dosen") or "Dosen Pembimbing Akademik"
+        nip_dosen = row.get("nip_dosen") or "-"
+        ttd = row.get("tanda_tangan_digital")
+        tgl_ttd = self.format_date(row.get("tanggal_keputusan_dosen") or row.get("tanggal_disetujui"))
+        catatan_dosen = row.get("catatan_dosen") or "Belum ada catatan dosen."
+        catatan_admin = row.get("catatan_admin") or "Belum ada catatan admin."
 
         if status.lower() in ("selesai", "disetujui"):
             warna, warna_teks = PALE_GREEN, "#477A58"
-        elif status.lower() in ("diajukan", "menunggu", "diproses"):
-            warna, warna_teks = PALE_AMBER, "#A96335"
-        else:
+            status_judul = f"STATUS: {status.upper()} — TELAH DITANDATANGANI DOSEN"
+        elif status.lower() == "ditolak":
             warna, warna_teks = "#F7E8E2", "#B65C54"
+            status_judul = "STATUS: DITOLAK"
+        else:
+            warna, warna_teks = PALE_AMBER, "#A96335"
+            status_judul = f"STATUS: {status.upper()} (MENUNGGU TANDA TANGAN DOSEN)"
 
         self.detail.configure(bg=warna)
         self.detail_title.configure(
             bg=warna,
             fg=warna_teks,
-            text=f"STATUS: {status.upper()}"
+            text=status_judul
         )
+
+        detail_lines = [
+            f"Nomor: #{nomor}  |  Jenis Surat: {jenis}",
+            f"Dosen Pembimbing/Wali: {nama_dosen} (NIDN/NIP. {nip_dosen})",
+            f"Catatan Dosen: {catatan_dosen}"
+        ]
+
+        if ttd and status.lower() in ("selesai", "disetujui"):
+            detail_lines.append(f"Hash Verifikasi SHA-256: {ttd[:32]}...  (Disahkan: {tgl_ttd})")
+
+        if catatan_admin != "Belum ada catatan admin.":
+            detail_lines.append(f"Catatan Admin: {catatan_admin}")
+
         self.detail_text.configure(
             bg=warna,
-            text=f"{nomor}  •  {jenis}\nCatatan admin: {catatan}",
-            fg="#596D5E"
+            text="\n".join(detail_lines),
+            fg="#2C4037"
         )
 
-    def _hasil_terakhir(self):
-        """Kembalikan data sesuai baris yang sedang tampil di tabel."""
-        query = self.nomor.get().strip().lower()
-        if query == self.hint.lower():
-            query = ""
+    def buka_pratinjau_surat(self):
+        """Membuka dokumen surat resmi bertanda tangan asli & digital (khusus status Disetujui/Selesai)."""
+        if not self.selected_row_data:
+            messagebox.showwarning(
+                "Pilih Pengajuan",
+                "Pilih satu pengajuan pada tabel terlebih dahulu."
+            )
+            return
 
-        status_pilihan = self.filter_var.get()
-        return [
-            row for row in self.rows
-            if (
-                status_pilihan == "Semua status"
-                or str(row.get("status") or "") == status_pilihan
+        status = str(self.selected_row_data.get("status") or "Diajukan").strip()
+        if status.lower() == "ditolak":
+            alasan = (
+                self.selected_row_data.get("catatan_dosen")
+                or self.selected_row_data.get("catatan_admin")
+                or "Tidak ada catatan penolakan."
             )
-            and (
-                not query
-                or query in str(row.get("nomor_pengajuan") or "").lower()
-                or query in str(
-                    row.get("nama_jenis_surat")
-                    or row.get("nama_jenis")
-                    or ""
-                ).lower()
-                or query in str(
-                    row.get("nama_mahasiswa")
-                    or row.get("nama")
-                    or ""
-                ).lower()
+            messagebox.showerror(
+                "Pengajuan Ditolak",
+                f"Surat tidak dapat dilihat atau diunduh karena pengajuan berstatus DITOLAK.\n\n"
+                f"Catatan / Alasan:\n{alasan}"
             )
-        ]
+            return
+
+        if status.lower() not in ("disetujui", "selesai"):
+            messagebox.showinfo(
+                "Belum Disetujui",
+                f"Surat masih berstatus '{status}' dan menunggu verifikasi serta tanda tangan dosen.\n\n"
+                "Dokumen resmi dan unduhan PDF akan tersedia setelah status berubah menjadi Disetujui."
+            )
+            return
+
+        SuratPreviewDialog(self, self.selected_row_data)
+
+    def _hasil_terakhir(self):
+        return self.controller.filter_pengajuan(
+            self.rows,
+            keyword=self._get_query_aktif(),
+            filter_status=self.filter_var.get()
+        )
 
     @staticmethod
     def format_date(value):
         if value is None:
             return "-"
-
         if hasattr(value, "strftime"):
             return value.strftime("%d %b %Y")
-
         try:
-            return datetime.strptime(
-                str(value)[:19],
-                "%Y-%m-%d %H:%M:%S"
-            ).strftime("%d %b %Y")
+            return datetime.strptime(str(value)[:19], "%Y-%m-%d %H:%M:%S").strftime("%d %b %Y")
         except ValueError:
             return str(value)

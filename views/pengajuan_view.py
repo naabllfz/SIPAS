@@ -1,256 +1,315 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
-from models.jenis_surat_model import JenisSuratModel
+from tkinter import ttk, messagebox, filedialog
+from datetime import datetime
 
+from controllers.mahasiswa_controller import MahasiswaController
 from views.theme import (
-    BG, WHITE, NAVY, BLUE, MUTED, LINE, PALE_BLUE,
-    page_heading, panel, primary_button, secondary_button, labeled_entry
+    BG, WHITE, NAVY, BLUE, MUTED, LINE,
+    page_heading, panel, primary_button, secondary_button
 )
 
 
 class PengajuanView(tk.Frame):
-    def __init__(self, master, on_navigate=None):
+    def __init__(self, master, id_mahasiswa=1, on_navigate=None):
         super().__init__(master, bg=BG)
+        self.id_mahasiswa = id_mahasiswa
+        self.on_navigate = on_navigate
+        self.controller = MahasiswaController(self.id_mahasiswa)
 
+        self.mahasiswa = None
+        self.list_jenis = []
+        self.list_dosen = []
+        self.riwayat_saya = []
+        self.path_lampiran = None
+
+        self.muat_data_master()
+        self.setup_ui()
+
+    def muat_data_master(self):
+        try:
+            data = self.controller.get_data_form_pengajuan()
+            self.mahasiswa = data["profil"]
+            self.list_jenis = data["jenis_surat"]
+            self.list_dosen = data["dosen"]
+            self.riwayat_saya = data["riwayat"]
+        except Exception:
+            self.mahasiswa = None
+            self.list_jenis = []
+            self.list_dosen = []
+            self.riwayat_saya = []
+
+    def muat_riwayat_saya(self):
+        try:
+            self.riwayat_saya = self.controller.get_riwayat_saja()
+        except Exception:
+            self.riwayat_saya = []
+
+    @staticmethod
+    def format_date(value):
+        if value is None:
+            return "-"
+        if hasattr(value, "strftime"):
+            return value.strftime("%d %b %Y")
+        try:
+            return datetime.strptime(str(value)[:19], "%Y-%m-%d %H:%M:%S").strftime("%d %b %Y")
+        except Exception:
+            return str(value)
+
+    def setup_ui(self):
         page_heading(
             self,
-            "Layanan mahasiswa",
-            "Buat pengajuan surat",
-            "Isi informasi berikut untuk memulai permohonan surat Anda."
+            "Layanan Akademik",
+            "Buat Pengajuan Surat Baru",
+            "Lengkapi formulir permohonan surat akademik dan lampirkan dokumen pendukung jika diperlukan."
         )
 
         layout = tk.Frame(self, bg=BG)
         layout.pack(fill="both", expand=True)
 
-        form = panel(layout, 22, 20)
-        form.pack(side="left", fill="both", expand=True, padx=(0, 16))
-
-        side = panel(layout, 18, 18)
-        side.configure(width=270)
-        side.pack(side="right", fill="y")
-        side.pack_propagate(False)
+        # Panel Kiri: Form Pengajuan
+        form_box = panel(layout, 22, 20)
+        form_box.pack(side="left", fill="both", expand=True, padx=(0, 16))
 
         tk.Label(
-            form, text="Informasi pemohon", bg=WHITE, fg=NAVY,
+            form_box,
+            text="Formulir Permohonan Surat",
+            bg=WHITE,
+            fg=NAVY,
             font=("Segoe UI", 12, "bold")
-        ).grid(row=0, column=0, sticky="w", pady=(0, 4))
+        ).pack(anchor="w", pady=(0, 12))
+
+        # Identitas Pemohon (Readonly sesuai akun login)
+        nama_mhs = (self.mahasiswa or {}).get("nama", "Mahasiswa")
+        nim_mhs = (self.mahasiswa or {}).get("nim", "-")
+        prodi_mhs = (self.mahasiswa or {}).get("prodi", "Sistem Informasi")
+
+        info_box = tk.Frame(form_box, bg="#F8FAF5", padx=12, pady=10, highlightbackground=LINE, highlightthickness=1)
+        info_box.pack(fill="x", pady=(0, 14))
 
         tk.Label(
-            form,
-            text="Pastikan data sesuai dengan identitas mahasiswa.",
-            bg=WHITE,
+            info_box,
+            text=f"Pemohon: {nama_mhs} ({nim_mhs})  •  Prodi {prodi_mhs}",
+            bg="#F8FAF5",
+            fg=NAVY,
+            font=("Segoe UI", 9, "bold")
+        ).pack(anchor="w")
+
+        # Pilih Jenis Surat
+        tk.Label(form_box, text="Jenis Surat *", bg=WHITE, fg=NAVY, font=("Segoe UI", 9, "bold")).pack(anchor="w", pady=(0, 4))
+        self.jenis_map = {
+            (j.get("jenis_surat") or j.get("nama_jenis")): j
+            for j in self.list_jenis
+        }
+        self.cb_jenis = ttk.Combobox(
+            form_box,
+            state="readonly",
+            values=list(self.jenis_map.keys()),
+            font=("Segoe UI", 9)
+        )
+        self.cb_jenis.pack(fill="x", ipady=4, pady=(0, 12))
+        if self.jenis_map:
+            self.cb_jenis.current(0)
+
+        # Pilih Dosen Tujuan
+        tk.Label(form_box, text="Dosen Pembimbing / Penandatangan *", bg=WHITE, fg=NAVY, font=("Segoe UI", 9, "bold")).pack(anchor="w", pady=(0, 4))
+        self.dosen_map = {
+            f"{d['nama_dosen']} — {d.get('jabatan') or 'Dosen'}": d
+            for d in self.list_dosen
+        }
+        self.cb_dosen = ttk.Combobox(
+            form_box,
+            state="readonly",
+            values=list(self.dosen_map.keys()),
+            font=("Segoe UI", 9)
+        )
+        self.cb_dosen.pack(fill="x", ipady=4, pady=(0, 12))
+        if self.dosen_map:
+            self.cb_dosen.current(0)
+
+        # Keterangan / Keperluan
+        tk.Label(form_box, text="Keterangan / Keperluan *", bg=WHITE, fg=NAVY, font=("Segoe UI", 9, "bold")).pack(anchor="w", pady=(0, 4))
+        self.txt_keperluan = tk.Text(
+            form_box,
+            height=4,
+            font=("Segoe UI", 9),
+            relief="solid",
+            bd=1,
+            highlightthickness=1,
+            highlightbackground=LINE
+        )
+        self.txt_keperluan.pack(fill="x", pady=(0, 12))
+
+        # Lampiran Dokumen (Opsional)
+        attach_box = tk.Frame(form_box, bg="#F8F8F0", padx=10, pady=8, highlightbackground=LINE, highlightthickness=1)
+        attach_box.pack(fill="x", pady=(0, 16))
+
+        self.btn_pilih_file = tk.Button(
+            attach_box,
+            text="＋  Tambahkan lampiran (Opsional)",
+            command=self.pilih_lampiran,
+            bg="#F8F8F0",
+            fg=BLUE,
+            activebackground="#EFEFE5",
+            activeforeground=BLUE,
+            font=("Segoe UI", 9, "bold"),
+            bd=0,
+            highlightthickness=0,
+            cursor="hand2",
+            anchor="w"
+        )
+        self.btn_pilih_file.pack(side="left", fill="x", expand=True)
+
+        self.btn_hapus_file = tk.Button(
+            attach_box,
+            text="✕ Hapus",
+            command=self.hapus_lampiran,
+            bg="#F8F8F0",
+            fg="#B65C54",
+            activebackground="#EFEFE5",
+            activeforeground="#B65C54",
+            font=("Segoe UI", 8, "bold"),
+            bd=0,
+            highlightthickness=0,
+            cursor="hand2"
+        )
+
+        self.lbl_info_file = tk.Label(
+            attach_box,
+            text="PDF / JPG · maks. 5 MB",
+            bg="#F8F8F0",
             fg=MUTED,
             font=("Segoe UI", 8)
-        ).grid(row=1, column=0, columnspan=2, sticky="w", pady=(0, 17))
-
-        self.jenis_surat_data = []
-        self.jenis_surat_by_nama = {}
-
-        self.entries = {}
-        self.add_input(form, "NIM *", "nim", "Contoh: F52125100", 2, 0)
-        self.add_input(form, "Nama mahasiswa *", "nama", "Nama lengkap", 2, 1)
-        self.add_input(form, "Program studi *", "prodi", "Program studi", 4, 0)
-        self.add_input(form, "Email", "email", "nama@email.com", 4, 1)
-
-        tk.Label(
-            form, text="Jenis surat *", bg=WHITE, fg="#2C4037",
-            font=("Segoe UI", 9, "bold")
-        ).grid(row=6, column=0, sticky="w", pady=(4, 7))
-
-        self.jenis = ttk.Combobox(
-                form,
-                state="readonly",
-                font=("Segoe UI", 10),
-                values=[]
-            )
-        
-        self.jenis.grid(
-            row=7,
-            column=0,
-            columnspan=2,
-            sticky="ew",
-            ipady=4
         )
-        self.jenis.set("Pilih jenis surat")
+        self.lbl_info_file.pack(side="right", padx=(0, 4))
 
-        self.info_jenis = tk.Label(
-            form,
-            text="Memuat jenis surat dari database...",
-            bg=WHITE,
-            fg=MUTED,
-            font=("Segoe UI", 8)
-        )
-        self.info_jenis.grid(
-            row=7,
-            column=0,
-            columnspan=2,
-            sticky="e",
-            pady=(35, 0)
-        )
-
-        self.load_jenis_surat()
-        self.jenis.grid(row=7, column=0, columnspan=2, sticky="ew", ipady=4)
-        self.jenis.set("Pilih jenis surat")
-
-        tk.Label(
-            form, text="Keterangan / keperluan *", bg=WHITE, fg="#2C4037",
-            font=("Segoe UI", 9, "bold")
-        ).grid(row=8, column=0, sticky="w", pady=(16, 7))
-
-        self.keterangan = tk.Text(
-            form, height=4, font=("Segoe UI", 10), relief="solid",
-            bd=1, wrap="word", highlightthickness=1,
-            highlightbackground=LINE, highlightcolor=BLUE
-        )
-        self.keterangan.grid(row=9, column=0, columnspan=2, sticky="ew")
-
-        attach = tk.Frame(
-            form, bg="#F8F8F0", padx=13, pady=11,
-            highlightbackground=LINE, highlightthickness=1
-        )
-        attach.grid(row=10, column=0, columnspan=2, sticky="ew", pady=(14, 0))
-
-        tk.Label(
-            attach, text="＋  Tambahkan lampiran", bg="#F8F8F0", fg=BLUE,
-            font=("Segoe UI", 9, "bold")
-        ).pack(side="left")
-
-        tk.Label(
-            attach, text="PDF / JPG · maks. 5 MB", bg="#F8F8F0", fg=MUTED,
-            font=("Segoe UI", 8)
-        ).pack(side="right")
-
-        actions = tk.Frame(form, bg=WHITE)
-        actions.grid(row=11, column=0, columnspan=2, sticky="ew", pady=(17, 0))
-
-        secondary_button(
-            actions, "Batal", lambda: on_navigate("dashboard")
-        ).pack(side="right", padx=(8, 0))
+        # Tombol Aksi Form
+        btn_row = tk.Frame(form_box, bg=WHITE)
+        btn_row.pack(fill="x")
 
         primary_button(
-            actions, "Kirim pengajuan  →", self.kirim
+            btn_row,
+            "Kirim Pengajuan Surat  →",
+            self.kirim_pengajuan,
+            padx=18,
+            pady=9
         ).pack(side="right")
 
-        form.columnconfigure(0, weight=1)
-        form.columnconfigure(1, weight=1)
+        secondary_button(
+            btn_row,
+            "Reset Form",
+            self.reset_form,
+            padx=14,
+            pady=9
+        ).pack(side="right", padx=(0, 8))
+
+        # Panel Kanan: Riwayat Pengajuan Milik Mahasiswa Login
+        side_box = panel(layout, 20, 20)
+        side_box.configure(width=380)
+        side_box.pack(side="right", fill="y")
+        side_box.pack_propagate(False)
 
         tk.Label(
-            side, text="PANDUAN", bg=WHITE, fg=BLUE,
-            font=("Segoe UI", 8, "bold")
-        ).pack(anchor="w")
+            side_box,
+            text="Riwayat Pengajuan Saya",
+            bg=WHITE,
+            fg=NAVY,
+            font=("Segoe UI", 12, "bold")
+        ).pack(anchor="w", pady=(0, 4))
 
         tk.Label(
-            side, text="Sebelum mengirim", bg=WHITE, fg=NAVY,
-            font=("Segoe UI", 14, "bold")
-        ).pack(anchor="w", pady=(5, 15))
+            side_box,
+            text="Daftar permohonan yang pernah Anda kirimkan.",
+            bg=WHITE,
+            fg=MUTED,
+            font=("Segoe UI", 8)
+        ).pack(anchor="w", pady=(0, 12))
 
-        panduan = [
-            "Gunakan data mahasiswa yang aktif.",
-            "Pilih jenis surat yang sesuai kebutuhan.",
-            "Jelaskan keperluan secara singkat dan jelas.",
-            "Siapkan dokumen pendukung jika dibutuhkan."
-        ]
+        cols = ("nomor", "jenis", "status")
+        self.table_riwayat = ttk.Treeview(side_box, columns=cols, show="headings", height=12)
+        self.table_riwayat.heading("nomor", text="NO")
+        self.table_riwayat.column("nomor", width=55, anchor="w")
+        self.table_riwayat.heading("jenis", text="JENIS SURAT")
+        self.table_riwayat.column("jenis", width=185, anchor="w")
+        self.table_riwayat.heading("status", text="STATUS")
+        self.table_riwayat.column("status", width=95, anchor="w")
+        self.table_riwayat.pack(fill="both", expand=True, pady=(0, 12))
 
-        for nomor, teks in enumerate(panduan, start=1):
-            row = tk.Frame(side, bg=WHITE)
-            row.pack(fill="x", pady=8)
+        self.isi_tabel_riwayat()
 
-            tk.Label(
-                row, text=str(nomor), bg=PALE_BLUE, fg=BLUE,
-                width=2, pady=4, font=("Segoe UI", 8, "bold")
-            ).pack(side="left", padx=(0, 9))
+        if self.on_navigate:
+            secondary_button(
+                side_box,
+                "Lihat Detail & Unduh Surat  →",
+                lambda: self.on_navigate("status")
+            ).pack(fill="x")
 
-            tk.Label(
-                row, text=teks, bg=WHITE, fg="#596D5E",
-                wraplength=190, justify="left", font=("Segoe UI", 8)
-            ).pack(side="left", fill="x")
+    def isi_tabel_riwayat(self):
+        self.table_riwayat.delete(*self.table_riwayat.get_children())
+        for row in self.riwayat_saya:
+            self.table_riwayat.insert("", "end", values=(
+                f"#{row.get('nomor_pengajuan', '-')}",
+                row.get("jenis_surat") or row.get("nama_jenis", "-"),
+                row.get("status") or "Diajukan"
+            ))
 
-        tk.Frame(side, bg=LINE, height=1).pack(fill="x", pady=15)
-
-        tk.Label(
-            side, text="ESTIMASI PEMROSESAN", bg=WHITE, fg=MUTED,
-            font=("Segoe UI", 8, "bold")
-        ).pack(anchor="w")
-
-        tk.Label(
-            side, text="1–3 hari kerja", bg=WHITE, fg="#477A58",
-            font=("Segoe UI", 13, "bold")
-        ).pack(anchor="w", pady=(5, 0))
-
-    def add_input(self, parent, label, key, hint, row, column):
-        wrap, entry = labeled_entry(parent, label, hint)
-        wrap.grid(
-            row=row,
-            column=column,
-            sticky="ew",
-            padx=(0, 9) if column == 0 else (9, 0),
-            pady=(0, 14)
+    def pilih_lampiran(self):
+        file_path = filedialog.askopenfilename(
+            parent=self,
+            title="Pilih Dokumen Lampiran",
+            filetypes=[
+                ("Semua Dokumen", "*.pdf *.jpg *.jpeg *.png *.PDF *.JPG *.JPEG *.PNG"),
+                ("File PDF", "*.pdf *.PDF"),
+                ("Gambar", "*.jpg *.jpeg *.png *.JPG *.JPEG *.PNG")
+            ]
         )
-        self.entries[key] = (entry, hint)
-
-    def kirim(self):
-        nama_jenis = self.jenis.get()
-        jenis_terpilih = self.jenis_surat_by_nama.get(nama_jenis)
-
-        if not jenis_terpilih:
-            messagebox.showwarning(
-                "Jenis surat tidak tersedia",
-                "Pilih jenis surat aktif dari daftar."
-            )
+        if not file_path:
             return
 
-        id_jenis_surat = jenis_terpilih["id_jenis_surat"]
-
-        if not self.keterangan.get("1.0", "end").strip():
-            messagebox.showwarning(
-                "Form belum lengkap",
-                "Isi keterangan atau keperluan surat."
-            )
+        valid, hasil = self.controller.validasi_lampiran(file_path)
+        if not valid:
+            messagebox.showwarning("Lampiran Tidak Valid", hasil)
             return
+
+        self.path_lampiran = file_path
+        self.btn_pilih_file.configure(text=f"📄  {hasil['nama']}", fg="#2C4037")
+        self.lbl_info_file.configure(text=hasil["ukuran"])
+        self.btn_hapus_file.pack(side="right", padx=(6, 4))
+
+    def hapus_lampiran(self):
+        self.path_lampiran = None
+        self.btn_pilih_file.configure(text="＋  Tambahkan lampiran (Opsional)", fg=BLUE)
+        self.lbl_info_file.configure(text="PDF / JPG · maks. 5 MB")
+        self.btn_hapus_file.pack_forget()
+
+    def reset_form(self):
+        if self.jenis_map:
+            self.cb_jenis.current(0)
+        if self.dosen_map:
+            self.cb_dosen.current(0)
+        self.txt_keperluan.delete("1.0", "end")
+        self.hapus_lampiran()
+
+    def kirim_pengajuan(self):
+        jenis_obj = self.jenis_map.get(self.cb_jenis.get())
+        dosen_obj = self.dosen_map.get(self.cb_dosen.get())
+        keperluan = self.txt_keperluan.get("1.0", "end")
+
+        sukses, hasil = self.controller.buat_pengajuan(
+            id_jenis_surat=jenis_obj["id_jenis_surat"] if jenis_obj else None,
+            id_dosen=dosen_obj["id_dosen"] if dosen_obj else None,
+            keperluan=keperluan,
+            path_lampiran=self.path_lampiran
+        )
+
+        if not sukses:
+            messagebox.showwarning("Validasi Pengajuan", hasil)
+            return
+
+        self.reset_form()
+        self.muat_riwayat_saya()
+        self.isi_tabel_riwayat()
 
         messagebox.showinfo(
-            "Pengajuan siap",
-            "Tampilan formulir sudah siap. Sambungkan tombol ini ke "
-            "PengajuanController untuk menyimpan ke database."
+            "Pengajuan Terkirim",
+            f"Permohonan surat #{hasil:03d} berhasil diajukan!\nAnda dapat memantau progresnya di halaman Status Pengajuan."
         )
-
-    def load_jenis_surat(self):
-        try:
-            # Mengambil hanya jenis surat yang aktif dari database.
-            self.jenis_surat_data = JenisSuratModel().aktif_saja() or []
-
-            self.jenis_surat_by_nama = {}
-            nama_jenis = []
-
-            for row in self.jenis_surat_data:
-                nama = (
-                    row.get("nama_jenis")
-                    or row.get("nama_jenis_surat")
-                )
-
-                if nama:
-                    nama_jenis.append(nama)
-                    self.jenis_surat_by_nama[nama] = row
-
-            self.jenis.configure(values=nama_jenis)
-
-            if nama_jenis:
-                self.jenis.set("Pilih jenis surat")
-                self.info_jenis.configure(
-                    text=f"{len(nama_jenis)} jenis surat tersedia",
-                    fg=MUTED
-                )
-            else:
-                self.jenis.set("Tidak ada jenis surat aktif")
-                self.info_jenis.configure(
-                    text="Periksa data jenis surat di database.",
-                    fg="#A96335"
-                )
-
-        except Exception as error:
-            self.jenis.configure(values=[])
-            self.jenis.set("Gagal memuat jenis surat")
-            self.info_jenis.configure(
-                text=f"Kesalahan database: {error}",
-                fg="#B65C54"
-            )

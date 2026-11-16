@@ -41,22 +41,22 @@ def panel(parent, padx=20, pady=18):
     )
 
 
-def primary_button(parent, text, command, **kwargs):
+def primary_button(parent, text, command, padx=17, pady=10, **kwargs):
     return tk.Button(
         parent, text=text, command=command, bg=BLUE, fg=WHITE,
         activebackground=BLUE_DARK, activeforeground=WHITE,
         relief="flat", bd=0, cursor="hand2",
-        font=("Segoe UI", 9, "bold"), padx=17, pady=10,
+        font=("Segoe UI", 9, "bold"), padx=padx, pady=pady,
         **kwargs
     )
 
 
-def secondary_button(parent, text, command, **kwargs):
+def secondary_button(parent, text, command, padx=15, pady=9, **kwargs):
     return tk.Button(
         parent, text=text, command=command, bg=WHITE, fg=INK,
         activebackground="#EFF0E7", activeforeground=NAVY,
         relief="solid", bd=1, cursor="hand2",
-        font=("Segoe UI", 9, "bold"), padx=15, pady=9,
+        font=("Segoe UI", 9, "bold"), padx=padx, pady=pady,
         **kwargs
     )
 

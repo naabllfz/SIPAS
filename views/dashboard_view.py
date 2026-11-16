@@ -1,8 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 
-from models.mahasiswa_model import MahasiswaModel
-from models.pengajuan_surat_model import PengajuanSuratModel
+from controllers.mahasiswa_controller import MahasiswaController
 from views.theme import (
     BG, WHITE, NAVY, BLUE, MUTED, LINE,
     GREEN, AMBER, RED, PALE_BLUE, PALE_GREEN,
@@ -12,33 +11,40 @@ from views.theme import (
 
 
 class DashboardView(tk.Frame):
-    def __init__(self, master, on_navigate=None):
+    def __init__(self, master, id_mahasiswa=1, on_navigate=None):
         super().__init__(master, bg=BG)
+        self.id_mahasiswa = id_mahasiswa
         self.on_navigate = on_navigate
+        self.controller = MahasiswaController(self.id_mahasiswa)
+
         self.error_message = None
         self.pengajuan = []
-
-        self.load_data()
-        self.build_view()
+        self.mahasiswa = None
+        self.status_counts = {}
 
         self.load_data()
         self.build_view()
 
     def load_data(self):
         try:
-            self.pengajuan = PengajuanSuratModel().semua_dengan_relasi() or []
+            data = self.controller.get_data_dashboard()
+            self.mahasiswa = data["profil"]
+            self.pengajuan = data["pengajuan"]
+            self.status_counts = data["status_counts"]
             self.error_message = None
         except Exception as error:
             self.error_message = str(error)
             self.pengajuan = []
+            self.status_counts = {}
 
     def build_view(self):
+        nama_mhs = (self.mahasiswa or {}).get("nama", "Mahasiswa")
 
         page_heading(
             self,
             "Ringkasan",
-            "Dashboard Mahasiswa",
-            "Ringkasan seluruh pengajuan surat dari database."
+            f"Dashboard — {nama_mhs}",
+            "Ringkasan pengajuan surat akademik milik Anda."
         )
 
         if self.error_message:
@@ -57,17 +63,11 @@ class DashboardView(tk.Frame):
         stats = tk.Frame(self, bg=BG)
         stats.pack(fill="x", pady=(0, 18))
 
-        # Kartu jumlah status dibuat dari data yang diterima dari database.
-        status_counts = {}
-        for row in self.pengajuan:
-            status = (row.get("status") or "Tanpa status").strip()
-            status_counts[status] = status_counts.get(status, 0) + 1
-
         self.stat_card(
             stats,
             "Total pengajuan",
             str(len(self.pengajuan)),
-            "Semua permohonan",
+            "Semua permohonan Anda",
             BLUE,
             PALE_BLUE
         )
@@ -88,10 +88,10 @@ class DashboardView(tk.Frame):
 
         status_tersedia = [
             status for status in urutan_status
-            if status in status_counts
+            if status in self.status_counts
         ]
         status_lain = [
-            status for status in status_counts
+            status for status in self.status_counts
             if status not in urutan_status
         ]
         status_tersedia.extend(sorted(status_lain))
@@ -101,7 +101,7 @@ class DashboardView(tk.Frame):
             self.stat_card(
                 stats,
                 status,
-                str(status_counts[status]),
+                str(self.status_counts[status]),
                 f"Pengajuan berstatus {status.lower()}",
                 accent,
                 tint
@@ -115,7 +115,7 @@ class DashboardView(tk.Frame):
 
         tk.Label(
             heading,
-            text="Pengajuan terbaru",
+            text="Pengajuan terbaru saya",
             bg=WHITE,
             fg=NAVY,
             font=("Segoe UI", 12, "bold")
@@ -161,7 +161,7 @@ class DashboardView(tk.Frame):
                 "end",
                 values=(
                     row.get("nomor_pengajuan", "-"),
-                    row.get("nama_jenis_surat") or row.get("nama_jenis") or "-",
+                    row.get("jenis_surat") or row.get("nama_jenis_surat") or row.get("nama_jenis") or "-",
                     self.format_date(row.get("tanggal_pengajuan")),
                     row.get("status", "-")
                 )

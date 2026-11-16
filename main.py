@@ -1,23 +1,28 @@
+import inspect
 import tkinter as tk
 from tkinter import ttk
-
+from controllers.auth_controller import AuthController
 from views.login_view import LoginView
 from views.dashboard_view import DashboardView
 from views.pengajuan_view import PengajuanView
 from views.status_view import StatusView
 from views.admin_view import AdminView
+from views.dosen_view import DosenView
 from views.theme import BG, BLUE, NAVY, WHITE
-from models.mahasiswa_model import MahasiswaModel
+from views.image_loader import set_window_icon, load_logo_image
+from splash_sipas import show_splash
 
 
 class AplikasiPengajuanSurat(tk.Tk):
     def __init__(self):
         super().__init__()
 
-        self.title("SIPAS | Pengajuan Surat Mahasiswa")
+        self.title("SIPAS | Pengajuan Surat Mahasiswa & Verifikasi Dosen")
         self.geometry("1240x790")
         self.minsize(980, 660)
         self.configure(bg=BG)
+
+        set_window_icon(self)
 
         style = ttk.Style(self)
         style.theme_use("clam")
@@ -51,14 +56,22 @@ class AplikasiPengajuanSurat(tk.Tk):
             foreground=NAVY
         )
 
+        # Inisialisasi Controller Autentikasi
+        self.auth_controller = AuthController()
+
         self.content = None
         self.nav_buttons = {}
         self.role = None
 
-        # ID mahasiswa untuk mode demo sebelum login terhubung ke database.
-        # Ganti angka 1 dengan id_mahasiswa yang ingin ditampilkan.
-        self.id_mahasiswa = 1
+        # Data sesi akun yang sedang login
+        self.id_mahasiswa = None
         self.mahasiswa = None
+
+        self.id_dosen = None
+        self.dosen = None
+
+        self.id_admin = None
+        self.admin = None
 
         self.show_login()
 
@@ -69,33 +82,46 @@ class AplikasiPengajuanSurat(tk.Tk):
     def show_login(self):
         self.clear()
 
-        # Bersihkan referensi widget yang sudah dihancurkan.
+        # Reset sesi via AuthController dan bersihkan referensi widget
+        self.auth_controller.logout()
         self.content = None
         self.nav_buttons = {}
         self.role = None
+        self.id_mahasiswa = None
         self.mahasiswa = None
+        self.id_dosen = None
+        self.dosen = None
+        self.id_admin = None
+        self.admin = None
 
-        LoginView(self, on_login=self.show_main).pack(
-            fill="both",
-            expand=True
-        )
+        LoginView(
+            self,
+            auth_controller=self.auth_controller,
+            on_login_success=self.show_main
+        ).pack(fill="both", expand=True)
 
-    def show_main(self, role="mahasiswa"):
+    def show_main(self, role="mahasiswa", user_data=None):
         self.clear()
 
         self.content = None
         self.nav_buttons = {}
         self.role = role
-        self.mahasiswa = None
+        user_data = user_data or self.auth_controller.current_user or {}
 
-        # Ambil nama mahasiswa dari database untuk identitas di header.
+        self.mahasiswa = None
+        self.dosen = None
+        self.admin = None
+
+        # Data profil sudah disegarkan oleh AuthController saat login
         if self.role == "mahasiswa":
-            try:
-                self.mahasiswa = MahasiswaModel().berdasarkan_id(
-                    self.id_mahasiswa
-                )
-            except Exception:
-                self.mahasiswa = None
+            self.id_mahasiswa = user_data.get("id_mahasiswa", 1)
+            self.mahasiswa = user_data
+        elif self.role == "dosen":
+            self.id_dosen = user_data.get("id_dosen", 1)
+            self.dosen = user_data
+        elif self.role == "admin":
+            self.id_admin = user_data.get("id_admin", 1)
+            self.admin = user_data
 
         shell = tk.Frame(self, bg=BG)
         shell.pack(fill="both", expand=True)
@@ -107,15 +133,21 @@ class AplikasiPengajuanSurat(tk.Tk):
         brand = tk.Frame(sidebar, bg=NAVY)
         brand.pack(fill="x", padx=22, pady=(27, 30))
 
-        tk.Label(
-            brand,
-            text="S",
-            bg=BLUE,
-            fg=WHITE,
-            width=2,
-            height=1,
-            font=("Segoe UI", 16, "bold")
-        ).pack(side="left", padx=(0, 11))
+        sidebar_logo = load_logo_image((36, 36))
+        if sidebar_logo:
+            lbl_logo = tk.Label(brand, image=sidebar_logo, bg=NAVY)
+            lbl_logo.image = sidebar_logo
+            lbl_logo.pack(side="left", padx=(0, 11))
+        else:
+            tk.Label(
+                brand,
+                text="S",
+                bg=BLUE,
+                fg=WHITE,
+                width=2,
+                height=1,
+                font=("Segoe UI", 16, "bold")
+            ).pack(side="left", padx=(0, 11))
 
         brand_text = tk.Frame(brand, bg=NAVY)
         brand_text.pack(side="left")
@@ -147,15 +179,41 @@ class AplikasiPengajuanSurat(tk.Tk):
         if self.role == "admin":
             menu = [
                 ("admin_dashboard", "⌂   Dashboard Admin"),
-                ("pengajuan", "＋   Buat Pengajuan"),
                 ("admin_queue", "▤   Kelola Pengajuan"),
                 ("admin_mahasiswa", "♙   Data Mahasiswa"),
+                ("admin_dosen", "🎓   Data Dosen"),
                 ("admin_jenis_surat", "✉   Jenis Surat")
             ]
-            nama_pengguna = "Admin Jurusan"
+            nama_pengguna = (self.admin or {}).get("nama_admin", "Admin Jurusan")
             label_peran = "Administrator"
-            inisial = "AD"
+            inisial = "".join(
+                bagian[0].upper()
+                for bagian in nama_pengguna.split()[:2]
+                if bagian
+            ) or "AD"
             teks_portal = "Portal Admin  /  Pengajuan Surat"
+
+        elif self.role == "dosen":
+            menu = [
+                ("dosen_dashboard", "⌂   Dashboard Dosen"),
+                ("dosen_surat_masuk", "✉   Surat Masuk & TTD"),
+                ("dosen_riwayat", "✓   Riwayat TTD Digital"),
+                ("dosen_profil", "👤  Profil & Speciment TTD")
+            ]
+            if self.dosen:
+                nama_pengguna = self.dosen.get("nama_dosen", "Dosen")
+                label_peran = self.dosen.get("jabatan", "Dosen Wali / Pembimbing")
+            else:
+                nama_pengguna = "Dosen"
+                label_peran = "Dosen Wali / Pembimbing"
+
+            inisial = "".join(
+                bagian[0].upper()
+                for bagian in nama_pengguna.replace("Dr.", "").replace("Prof.", "").strip().split()[:2]
+                if bagian
+            ) or "DS"
+            teks_portal = "Portal Dosen  /  Verifikasi & Tanda Tangan"
+
         else:
             menu = [
                 ("dashboard", "⌂   Ringkasan"),
@@ -165,13 +223,15 @@ class AplikasiPengajuanSurat(tk.Tk):
 
             if self.mahasiswa:
                 nama_pengguna = self.mahasiswa.get(
-                    "nama_mahasiswa",
-                    "Mahasiswa"
+                    "nama",
+                    self.mahasiswa.get("nama_mahasiswa", "Mahasiswa")
                 )
+                nim_mhs = self.mahasiswa.get("nim", "")
+                label_peran = f"Mahasiswa • {nim_mhs}" if nim_mhs else "Mahasiswa"
             else:
                 nama_pengguna = "Mahasiswa"
+                label_peran = "Mahasiswa"
 
-            label_peran = "Mahasiswa"
             inisial = "".join(
                 bagian[0].upper()
                 for bagian in nama_pengguna.split()[:2]
@@ -204,7 +264,7 @@ class AplikasiPengajuanSurat(tk.Tk):
 
         tk.Label(
             foot,
-            text="BUTUH BANTUAN?",
+            text="UNIVERSITAS TADULAKO",
             bg="#21483D",
             fg="#D9E6D8",
             font=("Segoe UI", 8, "bold")
@@ -212,7 +272,7 @@ class AplikasiPengajuanSurat(tk.Tk):
 
         tk.Label(
             foot,
-            text="Hubungi bagian administrasi akademik.",
+            text="Sistem Informasi Pengajuan Surat & Verifikasi Tanda Tangan Dosen.",
             bg="#21483D",
             fg="#A5B9A7",
             font=("Segoe UI", 8),
@@ -287,12 +347,22 @@ class AplikasiPengajuanSurat(tk.Tk):
         self.content = tk.Frame(body, bg=BG)
         self.content.pack(fill="both", expand=True, padx=30, pady=25)
 
-        halaman_awal = (
-            "admin_dashboard"
-            if self.role == "admin"
-            else "dashboard"
-        )
+        if self.role == "admin":
+            halaman_awal = "admin_dashboard"
+        elif self.role == "dosen":
+            halaman_awal = "dosen_dashboard"
+        else:
+            halaman_awal = "dashboard"
+
         self.navigate(halaman_awal)
+
+    def _buat_view_mahasiswa(self, view_cls):
+        """Meneruskan id_mahasiswa jika constructor view mendukungnya."""
+        params = inspect.signature(view_cls.__init__).parameters
+        kwargs = {"on_navigate": self.navigate}
+        if "id_mahasiswa" in params:
+            kwargs["id_mahasiswa"] = self.id_mahasiswa
+        return view_cls(self.content, **kwargs)
 
     def navigate(self, page):
         if self.content is None:
@@ -316,45 +386,49 @@ class AplikasiPengajuanSurat(tk.Tk):
 
         if page.startswith("admin_"):
             mode = page[len("admin_"):]
-            AdminView(self.content, page=mode).pack(
+            params = inspect.signature(AdminView.__init__).parameters
+            kwargs = {"page": mode}
+            if "id_admin" in params:
+                kwargs["id_admin"] = self.id_admin
+            AdminView(self.content, **kwargs).pack(
                 fill="both",
                 expand=True
             )
             return
 
-        if page == "dashboard":
-            DashboardView(
+        if page.startswith("dosen_"):
+            mode = page[len("dosen_"):]
+            DosenView(
                 self.content,
+                page=mode,
+                id_dosen=self.id_dosen,
                 on_navigate=self.navigate
             ).pack(fill="both", expand=True)
             return
 
+        if page == "dashboard":
+            self._buat_view_mahasiswa(DashboardView).pack(fill="both", expand=True)
+            return
+
         if page == "pengajuan":
-            PengajuanView(
-                self.content,
-                on_navigate=self.navigate
-            ).pack(fill="both", expand=True)
+            self._buat_view_mahasiswa(PengajuanView).pack(fill="both", expand=True)
             return
 
         if page == "status":
-            StatusView(
-                self.content,
-                on_navigate=self.navigate
-            ).pack(fill="both", expand=True)
-
-        if page == "pengajuan":
-            tujuan_kembali = (
-                "admin_dashboard"
-                if self.role == "admin"
-                else "dashboard"
-            )
-
-            PengajuanView(
-                self.content,
-                on_navigate=lambda _tujuan: self.navigate(tujuan_kembali)
-            ).pack(fill="both", expand=True)
-            return
+            self._buat_view_mahasiswa(StatusView).pack(fill="both", expand=True)
 
 
 if __name__ == "__main__":
-    AplikasiPengajuanSurat().mainloop()
+    app = AplikasiPengajuanSurat()
+    app.withdraw()  # Sembunyikan jendela utama selama splash screen berjalan
+
+    def on_splash_finish():
+        app.deiconify()
+        app.lift()
+        try:
+            app.focus_force()
+        except Exception:
+            pass
+
+    show_splash(app, on_done=on_splash_finish)
+    app.mainloop()

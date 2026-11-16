@@ -1,3 +1,4 @@
+import hashlib
 from config.database import Database
 
 
@@ -7,7 +8,7 @@ class MahasiswaModel:
         try:
             cursor = conn.cursor(dictionary=True)
             cursor.execute("""
-                SELECT id_mahasiswa, nim, nama, prodi, email
+                SELECT id_mahasiswa, nim, username, nama, prodi, email
                 FROM mahasiswa
                 ORDER BY id_mahasiswa DESC
             """)
@@ -20,7 +21,7 @@ class MahasiswaModel:
         try:
             cursor = conn.cursor(dictionary=True)
             cursor.execute("""
-                SELECT id_mahasiswa, nim, nama, prodi, email
+                SELECT id_mahasiswa, nim, username, nama, prodi, email
                 FROM mahasiswa
                 WHERE id_mahasiswa = %s
             """, (id_mahasiswa,))
@@ -33,7 +34,7 @@ class MahasiswaModel:
         try:
             cursor = conn.cursor(dictionary=True)
             cursor.execute("""
-                SELECT id_mahasiswa, nim, nama, prodi, email
+                SELECT id_mahasiswa, nim, username, nama, prodi, email
                 FROM mahasiswa
                 WHERE nim = %s
             """, (nim,))
@@ -44,11 +45,13 @@ class MahasiswaModel:
     def tambah(self, nim, nama, prodi, email=None):
         conn = Database.get_connection()
         try:
+            # Username default menggunakan NIM, password default menggunakan NIM
+            password_hash = hashlib.sha256(nim.encode("utf-8")).hexdigest()
             cursor = conn.cursor()
             cursor.execute("""
-                INSERT INTO mahasiswa (nim, nama, prodi, email)
-                VALUES (%s, %s, %s, %s)
-            """, (nim, nama, prodi, email))
+                INSERT INTO mahasiswa (nim, username, password_hash, nama, prodi, email)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, (nim, nim, password_hash, nama, prodi, email))
             conn.commit()
             return cursor.lastrowid
         except Exception:
