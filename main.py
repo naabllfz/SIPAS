@@ -6,6 +6,7 @@ from views.login_view import LoginView
 from views.dashboard_view import DashboardView
 from views.pengajuan_view import PengajuanView
 from views.status_view import StatusView
+from views.register_view import RegisterView
 from views.admin_view import AdminView
 from views.dosen_view import DosenView
 from views.theme import BG, BLUE, NAVY, WHITE
@@ -82,7 +83,6 @@ class AplikasiPengajuanSurat(tk.Tk):
     def show_login(self):
         self.clear()
 
-        # Reset sesi via AuthController dan bersihkan referensi widget
         self.auth_controller.logout()
         self.content = None
         self.nav_buttons = {}
@@ -97,7 +97,16 @@ class AplikasiPengajuanSurat(tk.Tk):
         LoginView(
             self,
             auth_controller=self.auth_controller,
-            on_login_success=self.show_main
+            on_login_success=self.show_main,
+            on_open_register=self.show_register
+        ).pack(fill="both", expand=True)
+
+    def show_register(self):
+        self.clear()
+        RegisterView(
+            self,
+            auth_controller=self.auth_controller,
+            on_back_to_login=self.show_login
         ).pack(fill="both", expand=True)
 
     def show_main(self, role="mahasiswa", user_data=None):

@@ -42,6 +42,19 @@ class MahasiswaModel:
         finally:
             conn.close()
 
+    def berdasarkan_username(self, username):
+        conn = Database.get_connection()
+        try:
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute("""
+                SELECT id_mahasiswa, nim, username, nama, prodi, email
+                FROM mahasiswa
+                WHERE username = %s
+            """, (username,))
+            return cursor.fetchone()
+        finally:
+            conn.close()
+
     def tambah(self, nim, nama, prodi, email=None):
         conn = Database.get_connection()
         try:
@@ -52,6 +65,23 @@ class MahasiswaModel:
                 INSERT INTO mahasiswa (nim, username, password_hash, nama, prodi, email)
                 VALUES (%s, %s, %s, %s, %s, %s)
             """, (nim, nim, password_hash, nama, prodi, email))
+            conn.commit()
+            return cursor.lastrowid
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
+    def registrasi(self, nim, username, password, nama, prodi, email=None):
+        conn = Database.get_connection()
+        try:
+            password_hash = hashlib.sha256(password.encode("utf-8")).hexdigest()
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO mahasiswa (nim, username, password_hash, nama, prodi, email)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, (nim, username, password_hash, nama, prodi, email))
             conn.commit()
             return cursor.lastrowid
         except Exception:

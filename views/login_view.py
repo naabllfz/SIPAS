@@ -5,10 +5,11 @@ from views.image_loader import load_logo_image
 
 
 class LoginView(tk.Frame):
-    def __init__(self, master, auth_controller, on_login_success):
+    def __init__(self, master, auth_controller, on_login_success, on_open_register=None):
         super().__init__(master, bg=BG)
         self.auth_controller = auth_controller
         self.on_login_success = on_login_success
+        self.on_open_register = on_open_register
 
         # Panel Kiri (Visual & Informasi SIPAS)
         visual = tk.Frame(self, bg=NAVY, width=470)
@@ -230,6 +231,31 @@ class LoginView(tk.Frame):
             font=("Segoe UI", 10, "bold")
         )
         self.btn_submit.pack(fill="x", ipady=11)
+        if self.on_open_register:
+            reg_wrap = tk.Frame(card, bg=WHITE)
+            reg_wrap.pack(pady=(14, 0))
+
+        tk.Label(
+            reg_wrap,
+            text="Belum punya akun mahasiswa?",
+            bg=WHITE,
+            fg=MUTED,
+            font=("Segoe UI", 8)
+        ).pack(side="left")
+
+        tk.Button(
+            reg_wrap,
+            text="Daftar di sini",
+            command=self.on_open_register,
+            bg=WHITE,
+            fg=BLUE,
+            activebackground=WHITE,
+            activeforeground=NAVY,
+            relief="flat",
+            bd=0,
+            cursor="hand2",
+            font=("Segoe UI", 8, "bold")
+        ).pack(side="left", padx=(4, 0))
 
         tk.Label(
             card,
