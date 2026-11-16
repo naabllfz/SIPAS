@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from controllers.mahasiswa_controller import MahasiswaController
 from controllers.dosen_controller import DosenController
 from controllers.admin_controller import AdminController
@@ -32,7 +32,6 @@ def test_buat_pengajuan_berhasil_mock():
 
 def test_hitung_statistik_dosen_sesuai_db():
     ctrl = DosenController(id_dosen=1)
-    # Simulasi baris sesuai tabel `pengajuan` (Disetujui, Selesai, Ditolak, Diproses)
     dummy_pengajuan = [
         {"id_pengajuan": 5, "id_mahasiswa": 1, "id_detail_surat": 1, "status": "Disetujui"},
         {"id_pengajuan": 6, "id_mahasiswa": 2, "id_detail_surat": 3, "status": "Disetujui"},
@@ -47,12 +46,15 @@ def test_hitung_statistik_dosen_sesuai_db():
     assert stats["ditolak"] == 1
 
 
-def test_approve_dosen_menghasilkan_hash_sha256():
-    model = PengajuanSuratModel()
-    model.conn = MagicMock()
+@patch("models.pengajuan_surat_model.Database.get_connection")
+def test_approve_dosen_menghasilkan_hash_sha256(mock_get_conn):
+    mock_conn = MagicMock()
     mock_cursor = MagicMock()
-    model.conn.cursor.return_value = mock_cursor
+    mock_cursor.fetchone.return_value = {"id_dokumen": 1}
+    mock_conn.cursor.return_value = mock_cursor
+    mock_get_conn.return_value = mock_conn
 
+    model = PengajuanSuratModel()
     hasil = model.approve_dosen(
         id_pengajuan=13,
         id_dosen=1,
@@ -60,6 +62,7 @@ def test_approve_dosen_menghasilkan_hash_sha256():
     )
     assert "tanda_tangan_digital" in hasil
     assert len(hasil["tanda_tangan_digital"]) == 64
+    mock_conn.commit.assert_called_once()
 
 
 def test_tolak_dosen_memanggil_model():

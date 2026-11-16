@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from controllers.auth_controller import AuthController
 
 
@@ -9,7 +9,8 @@ def test_login_input_kosong():
     assert isinstance(pesan, str) and len(pesan) > 0
 
 
-def test_login_mahasiswa_berhasil_mock():
+@patch("controllers.auth_controller.MahasiswaModel.berdasarkan_id")
+def test_login_mahasiswa_berhasil_mock(mock_berdasarkan_id):
     auth = AuthController()
     data_mhs = {
         "id_mahasiswa": 4,
@@ -24,6 +25,7 @@ def test_login_mahasiswa_berhasil_mock():
         "role": "mahasiswa",
         "user": data_mhs,
     })
+    mock_berdasarkan_id.return_value = data_mhs
 
     sukses, hasil = auth.proses_login("nabil123", "password123")
     assert sukses is True
